@@ -1,0 +1,259 @@
+File one: HOW TO OPTIMIZE SUBOPTIMAL CODE.
+
+The user may ask for help from you to fix/ troubleshoot he's code so along the way optimize the code before you give it to him
+
+
+
+
+Or he might directly ask for you to optimize his code
+
+Example querys
+
+
+
+
+I want a script that gives the player a diamond every time they break any block. Can you make this better?"
+
+import { world } from "@minecraft/server";
+
+world.afterEvents.playerBreakBlock.subscribe((data) => {
+  let player = data.player;
+  if (player != undefined) {
+    player.runCommand("give @p diamond 1");
+  } else {
+    return;
+  }
+});
+
+Why This Code is "Bad":
+
+1. Unnecessary if Check: The check for if (player != undefined) is redundant because the playerBreakBlock event always provides a player object.
+
+
+2. Inefficient Command: The runCommand("give @p diamond 1") targets @p, which is not reliable. It could give the item to a different player if they are closer.
+
+
+3. Lack of Error Handling: There's no handling for potential errors when running the command.
+
+
+4. Code Redundancy: The else { return; } statement is unnecessary here, as there's no code that needs to run after the if check.
+
+
+
+
+How to optimize it
+
+Code import { world } from "@minecraft/server";
+
+world.afterEvents.playerBreakBlock.subscribe((data) => {
+  let player = data.player;    player.runCommand("give @s diamond 1");
+});
+
+What changed?
+
+The if statement and the else statements are irrelevant in playerBreakBlock event since as listed in the name it's only triggered if a player broke a block
+
+Using runCommandAsync("command");
+
+
+
+
+Is bad because runCommandAsync only allows for 100 uses of it.
+Which means lag spikes
+
+Async means it runs on a sub Asynchronously that doesn't effect performance
+
+Example 1: Inefficient Repeated Database Access
+
+Original Code:
+
+import { world } from "@minecraft/server";
+
+world.afterEvents.playerJoin.subscribe((eventData) => {
+  const playerName = eventData.player.name;
+  const data = world.runCommand(`scoreboard players list ${playerName}`);
+ 
+  if (data) {
+    world.runCommand(`scoreboard players add ${playerName} joined 1`);
+  }
+});
+
+Issues:
+
+1. Repeated Command Calls: runCommand is used twice, once to fetch and once to update, which is inefficient.
+
+
+2. Overhead in Command Execution: Using scoreboard players list for each player join can cause lag in large worlds.
+
+
+
+Optimized Version:
+
+import { world } from "@minecraft/server";
+
+let playerJoinData = {};
+
+world.afterEvents.playerJoin.subscribe((eventData) => {
+  const playerName = eventData.player.name;
+
+  // Use a local object to track joins instead of querying each time
+  playerJoinData[playerName] = (playerJoinData[playerName] || 0) + 1;
+  world.sendMessage(`${playerName} has joined ${playerJoinData[playerName]} times.`);
+});
+
+Explanation:
+
+Use In-Memory Data: Instead of querying the scoreboard, playerJoinData tracks joins locally, reducing command overhead and improving efficiency.
+
+Less Command Usage: Only one message per join, with no scoreboard manipulation, reduces lag in busy servers.
+
+
+
+---
+
+Example 2: Inefficient Loops and Conditionals
+
+Original Code:
+
+import { world } from "@minecraft/server";
+
+world.afterEvents.tick.subscribe(() => {
+  world.getAllPlayers().forEach((player) => {
+    if (player.hasTag("active")) {
+      if (player.getScore("health") < 10) {
+        world.runCommand(`tell ${player.name} Your health is low!`);
+      }
+    }
+  });
+});
+
+Issues:
+
+1. Nested Conditionals: The double conditionals inside the loop create redundant checks, leading to unnecessary lag.
+
+
+2. Potential Lag on Every Tick: Running on every tick (20 times per second) is excessive for health checks.
+
+
+
+Optimized Version:
+
+import { world, system } from "@minecraft/server";
+
+system.runInterval(() => {
+  world.getAllPlayers().filter(player => player.hasTag("active"))
+    .forEach(player => {
+      if (player.getScore("health") < 10) {
+        player.runCommand(`tell @s Your health is low!`);
+      }
+    });
+}, 100); // Run every 5 seconds (100 ticks)
+
+Explanation:
+
+Filter and Simplify: filter() reduces players to only those with the "active" tag before checking health, making it more efficient.
+
+Reduced Frequency: Running every 5 seconds (100 ticks) instead of every tick is sufficient for a health warning, saving resources.
+
+
+
+---
+
+Example 3: Ineffective Event Unsubscription
+
+Original Code:
+
+import { world } from "@minecraft/server";
+
+let counter = 0;
+
+const eventHandler = world.afterEvents.entityHurt.subscribe(() => {
+  counter++;
+  if (counter > 10) {
+    world.afterEvents.entityHurt.unsubscribe(eventHandler); // Unsubscribe after 10 events
+  }
+});
+
+Issues:
+
+1. Unclear Unsubscription Logic: Storing the handler and unsubscribing later is confusing and risks memory leaks if not carefully managed.
+
+
+2. Manual Counter Management: Using a counter to unsubscribe from the event is an unreliable way to manage subscriptions.
+
+
+
+Optimized Version:
+
+import { world, system } from "@minecraft/server";
+
+let counter = 0;
+
+world.afterEvents.entityHurt.subscribe(() => {
+  counter++;
+  if (counter > 10) {
+    system.run(() => counter = 0); // Reset counter after reaching 10 events
+  }
+});
+
+Explanation:
+
+Use System Ticks Instead: Here, system tick functions can help manage counters without manually handling events.
+
+Clearer Code: Removing the event unsubscription simplifies the code and minimizes potential memory leaks.
+
+
+
+---
+
+Example 4: Redundant Object Creation and Event Use
+
+Original Code:
+
+import { world } from "@minecraft/server";
+
+world.afterEvents.entityCreate.subscribe((eventData) => {
+  const entity = eventData.entity;
+  const newObject = {
+    name: entity.name,
+    type: entity.typeId,
+    location: entity.location,
+  };
+  world.sendMessage(`A new ${newObject.type} was created at ${newObject.location}!`);
+});
+
+Issues:
+
+1. Redundant Object Creation: Creating a new object for each entity creation adds overhead and memory usage.
+
+
+2. Unnecessary Fields: Only the typeId and location are necessary for the message, making name redundant.
+
+
+
+Optimized Version:
+import { world } from "@minecraft/server";
+
+world.afterEvents.entityCreate.subscribe((eventData) => {
+  const { typeId, location } = eventData.entity;
+  const formattedLocation = `(${location.x}, ${location.y}, ${location.z})`;
+  world.sendMessage(`A new ${typeId} was created at ${formattedLocation}!`);
+});
+
+Explanation:
+
+Direct Property Access: Using destructuring to directly access typeId and location saves memory by avoiding unnecessary object creation.
+
+More Efficient Memory Usage: Only relevant properties are accessed, reducing the overhead and simplifying code readability.
+
+
+
+---
+
+These examples help reinforce key concepts:
+
+Reduce Redundant Operations: Avoid repeating actions that don’t need to happen every time.
+
+Use Efficient Data Structures: Rely on in-memory data or destructuring when possible to avoid unnecessary overhead.
+
+Minimize Event Frequency: Use intervals or fewer frequent checks when instant updates aren’t required.

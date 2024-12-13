@@ -1,0 +1,624 @@
+THE ULTIMATE GUIDE ON HOW TO SCRIPT FOR MINECRAFT BEDROCK
+
+What is scripting API
+
+Scripting API is Minecraft bedrock specific API that uses JavaScript to do stuff like get events edit nbt data access player information and more
+
+
+
+
+Is it better then HCF
+
+YES it is much more customizable and it is 100% data driven
+
+Here's Scripting syntax:
+
+Keep in mind all arugments are case specific
+
+world events example
+
+world.afterEvents.entityHurt.subscribe((data)=> {
+
+let hurt = data.hurtEntity; //entity arguments apply
+
+let dmgsrc = data.damageSource; //entity arguments apply
+
+let dmgamount = data.damage; // the amount of dmg stored in int
+
+});
+
+Explaining:
+
+world.afterEvents.entityHurt.subscribe
+
+/*
+
+If this event is triggered then since we subscribed to it we can run our code if not then we do not run our code
+
+You can replace entityHurt with the Event you want
+
+You can replace subscribe with unsubscribe
+
+subscribe means we run this code once the event happens
+
+
+
+
+unsubscribe means we no longer want to run this code even if the vent happens
+
+*/
+
+world.afterEvents.entityHurt.subscribe((data) => {});
+
+/*
+
+data Is a var that can be changed to anything However it is common practice to name it data or
+
+event
+
+=> {} means we export data to our code meaning we can use it to define stuff only within our event
+
+*/
+
+Example Script Use
+
+import { system, world, ItemStack, ItemComponent } from '@minecraft/server';
+
+let player_hassculk = []; // List of players who have sculk armor
+let players = world.getAllPlayers();
+
+world.afterEvents.entityDie.subscribe((data) => {
+    let plr = data.damageSource.damagingEntity;
+    let died = data.deadEntity;
+
+    if (players.includes(died)) {
+        died.runCommandAsync("scoreboard players set @s kills 0");
+        died.runCommandAsync("scoreboard players set @s wounds 0");
+        died.runCommandAsync("scoreboard players set @s blocks_broken 0");
+    }
+    if (!players.includes(plr)) return;
+    if (plr?.typeId != "minecraft:player") return;
+
+    plr.runCommandAsync('tag @s add killed');
+});
+system.run(async () => {
+    for (const player of world.getAllPlayers()) {
+        if (player.isSneaking) {
+            player.addTag("sneaking");
+        }
+        if (!player?.isSneaking) {
+            player.removeTag("sneaking");
+        }
+    }
+});
+function reduceItemDurability(player, item) {
+    try {
+
+        const durabilityComponent = item.getComponent('minecraft:durability');
+        durabilityComponent.damage += 1;  // Decrease durability by 1
+        player.getComponent('inventory').container.setItem(player.selectedSlot, item);
+    } catch (error) {
+        console.error("Error decreasing durability:", error);
+    }
+}
+let tools = ["better_mech:cobalt_pickaxe"];
+world.afterEvents.playerBreakBlock.subscribe((data) => {
+    let block = data.block;
+    let entity = data.player;
+    let tool = data.itemStackAfterBreak;
+    if (players.includes(entity)) {
+        entity.runCommandAsync("scoreboard players add @s blocks_broken 1");
+    }
+    if (tools.includes(tool?.typeId)) {
+        reduceItemDurability(entity, tool)
+    }
+});
+
+world.afterEvents.entityHurt.subscribe((data) => {
+    let hurt = data.hurtEntity;
+    let dmgsrc = data.damageSource;
+    let dmg_amount = data.damage;
+    if (players.includes(hurt)) {
+        if (hurt?.typeId === "minecraft:player") {
+            hurt.runCommandAsync(`scoreboard players add @s wounds ${dmg_amount}`);
+        }
+    }
+
+});
+
+world.afterEvents.playerPlaceBlock.subscribe((data) => {
+
+    let plr = data.player;
+    let block = data.block;
+
+    plr.runCommandAsync("scoreboard players add @s placed_blocks 1");
+});
+const dmgitem = {
+    on
+}
+world.beforeEvents.worldInitialize.subscribe(({ itemComponentRegistry }) => {
+    itemComponentRegistry.registerCustomComponent("better_mech:tool", dmgitem);
+});
+
+You should be able to understand this based on the other basic input I gave you
+
+
+
+                                                                                                                                                                                                            // See more at https://wiki.bedrock.dev/scripting/script-server.html
+
+All versions of scripts and basic explaining
+
+
+jaylydev.github.io
+Script API - v1.21.42
+4 - 5 minutes
+Script API References
+
+Landing page for Minecraft Bedrock Script API Reference, containing documentation related to experimental and stable Minecraft Script APIs to interact with a Minecraft world programmatically.
+
+The libraries of Script APIs are grouped under the @minecraft scope on Minecraft and npm.
+Documentation
+
+Visit one of the following links to view the full documentation that matches your Minecraft version.
+
+    Minecraft: Bedrock Edition API references: Script API - Latest
+
+    Minecraft: Bedrock Edition Preview API references: Script API - Preview
+
+    Script API Documentation Homepage
+
+Minecraft Module
+
+The Minecraft module, also known as @minecraft/server module, is the main script module to manipulate a Minecraft world.
+
+Here are some core features the module provides:
+
+    Manipulate a Minecraft world, including entities, blocks, dimensions, and more.
+    Register Custom Components for blocks and items.
+    Provides input and device infomation for a Minecraft player's client instance.
+    Changes game rules that apply to the world.
+    Controls player's camera view.
+    Use the System API to process long running operations.
+
+Events
+
+The Minecraft module allows you to respond to specific event occurs in Minecraft using event handlers in JavaScript. Event handlers are callback routines made by you. They are triggered in response to an interaction, like when a player interacts with an entity.
+
+Minecraft Script API's events are broken down into following categories:
+
+    System Events: Event handlers are triggered when a system-level operation is triggered.
+    World Events: Event handlers are triggered when an event happens within a Minecraft world.
+
+Data Storage
+
+The Minecraft module also provides mechanisms for script plugins to store data, in key/value pairs, in a Minecraft world.
+
+The two mechanisms within Minecraft world storage (accessible through Script API) are as follows:
+
+    Dynamic Properties: Maintains a separate storage for entities, items and world, that is accessible with only script API per behavior pack.
+    Scoreboards: Stores the score of entities in objectives. An objective tracks a single statistic for entities.
+
+Minecraft UI Module
+
+The @minecraft/server-ui module helps you build simple form or dialogs to players.
+Action Forms
+
+A form with a list of buttons with captions and images for presenting a set of options to a player.
+
+Message Forms 
+
+A form with two-button that are functional for Yes/No or OK/Cancel questions.
+
+Modal Forms
+
+A more flexible "questionnaire-style" list of controls in a form that can be used to take input.
+
+GameTest Framework( outdated shouldn't be used and should be replaced with minecraft/server module
+
+    One of the sample GameTests from Microsoft sample GameTest repository on GitHub
+
+GameTest Framework is a toolset available to creators to build and test any new content using the @minecraft/server-gametest script module and the /gametest command in Minecraft. Each GameTest is broken into the following:
+
+    Register a test: create an environment to conduct a test.
+    Setup a test: Setup the environment to run the test.
+    Validate a test: Evaluates whether a test passed or failed.
+
+Minecraft HTTP module( server only )
+
+Use the Script API to send HTTP requests to the internet using the @minecraft/server-net module.
+Minecraft Editor Module (editor mode API not useful for Minecraft scripts)
+
+    Bedrock Editor with Editor Samples Add-On in Minecraft Preview v1.21.30 (August 2024)
+
+The Minecraft Editor or the @minecraft/server-editor module is a built-in JavaScript library for Editor extensions to build complex tools to build, edit, and test worlds. Currently, this API is only accessible in Bedrock Preview on Windows.
+
+An Editor extension is a set of resource pack and behavior packs, like .mcaddon files but for Editor, uses this API to perform most actions in the Bedrock Editor.
+
+Here are some examples of what you can achieve with the Extension API:
+
+    Add built-in Ore UI components & views in the editor UI.
+    Create custom tools in the Editor panel.
+    Register custom actions and hotkeys to use a tool.
+    Export and playtest an Editor project as playable world.
+
+Server Admin Module (server only module)
+
+Load configuration of variables and secrets in Bedrock Dedicated Server folder using Script API.
+Debug Utilities Module
+
+A Script API module that is used for debugging purposes. Currently features:
+
+    Configure performance watchdog timing warnings for a plugin.
+    Provide access to performance-related infomation for script runtimes.
+
+
+
+Information on Holiday creator features (HCF) :
+
+
+
+
+MOST OF ITS COMPONETS HAVE BEEN REINTRODUCE IN SCRIPTING
+
+HCF is outdated and is no longer useable as of the version 1.21.20 because it has been removed and is no longer supported
+
+Here's a quick breakdown about what was HCF used for:
+1.block entities in the old and removed HCF you could make block entities that can do stuff like store nbt data items states
+
+2. Old events You were able to write code to control certain in-game actions, allowing for more complex, interactive worlds, like triggering events or interactions with players.
+
+
+
+HCF is old and outdated and is mostly replaces by the better and new JavaScript scripting API and custom components some aspects still wait for a reintroduction
+
+
+
+
+Why has it been removed?
+
+Because it use json instead of js
+
+Json not the well formated one but the really bad one it uses an outdated functions that may have been removed or renamed or restructured and do to the nature of HCF it was impossible to remove old components you could just disable updating them and HCF had lots of issues that were unfixable
+
+
+
+
+How to migrate from it use scripting and new custom components to do so
+
+Basic guide
+
+Block event migration example
+
+
+
+
+
+wiki.bedrock.dev
+Block Event Migration
+6 - 7 minutes
+
+BEFORE YOU START
+
+This page requires you to be comfortable with basic JavaScript and requires knowledge of how modern block events work.
+
+Struggling to upgrade your blocks' JSON events to custom components? Don't worry! This page will help you to understand what the deprecated JSON event responses look like implemented using the Script API.
+Add Mob Effect
+
+Custom Component
+
+js
+
+onStepOn({ entity }) {
+    entity?.addEffect("regeneration", 30, {
+        amplifier: 10,
+        showParticles: false
+    });
+}
+
+Damage (Entities)
+
+js
+
+import { EntityDamageCause } from "@minecraft/server";
+
+Custom Component
+
+js
+
+onStepOn({ entity }) {
+    entity?.applyDamage(2, {
+        cause: EntityDamageCause.drowning
+    });
+}
+
+Damage (Items)
+
+js
+
+import { EquipmentSlot, GameMode } from "@minecraft/server";
+
+Custom Component
+
+js
+
+onPlayerInteract({ player }) {
+    // Get main hand slot
+    if (!player) return;
+
+    const equippable = player.getComponent("minecraft:equippable");
+    if (!equippable) return;
+
+    const mainhand = equippable.getEquipmentSlot(EquipmentSlot.Mainhand);
+    if (!mainhand.hasItem()) return;
+
+    // Apply durability damage when not in creative mode
+    if (player.getGameMode() === GameMode.creative) return;
+
+    const itemStack = mainhand.getItem(); // Allows us to get item components
+
+    const durability = itemStack.getComponent("minecraft:durability");
+    if (!durability) return;
+
+    // Factor in unbreaking enchantment
+    const enchantable = itemStack.getComponent("minecraft:enchantable");
+    const unbreakingLevel = enchantable?.getEnchantment("unbreaking")?.level;
+
+    const damageChance = durability.getDamageChance(unbreakingLevel) / 100;
+
+    if (Math.random() > damageChance) return; // Randomly skip damage based on unbreaking level
+
+    // Damage the item
+    const shouldBreak = durability.damage === durability.maxDurability;
+
+    if (shouldBreak) {
+        mainhand.setItem(undefined); // Remove the item
+        player.playSound("random.break"); // Play break sound
+    } else {
+        durability.damage++; // Increase durability damage
+        mainhand.setItem(itemStack); // Update item in main hand
+    }
+}
+
+Decrement Stack
+
+js
+
+import { EquipmentSlot, GameMode } from "@minecraft/server";
+
+Custom Component
+
+js
+
+onPlayerInteract({ player }) {
+    if (!player) return;
+
+    const equippable = player.getComponent("minecraft:equippable");
+    if (!equippable) return;
+
+    const mainhand = equippable.getEquipmentSlot(EquipmentSlot.Mainhand);
+    if (!mainhand.hasItem()) return;
+
+    if (player.getGameMode() !== GameMode.creative) {
+        if (mainhand.amount > 1) {
+            mainhand.amount--; // Remove one item from the stack
+        } else {
+            mainhand.setItem(undefined); // Remove the item stack
+        }
+    }
+}
+
+Die (Blocks)
+
+Custom Component
+
+js
+
+onStepOn({ block }) {
+    block.setType("minecraft:air");
+}
+
+Die (Entities)
+
+Custom Component
+
+js
+
+onStepOn({ entity }) {
+    entity?.kill();
+}
+
+Play Effect
+
+Custom Component
+
+js
+
+onStepOn({ dimension, block }) {
+    dimension.spawnParticle("minecraft:campfire_smoke_particle", block.center());
+}
+
+Play Sound
+
+Custom Component
+
+js
+
+onStepOn({ dimension, block }) {
+    dimension.playSound("dig.stone", block.center());
+}
+
+Remove Mob Effect
+
+Custom Component
+
+js
+
+onStepOn({ entity }) {
+    entity?.removeEffect("regeneration");
+}
+
+Run Command
+
+Custom Component
+
+js
+
+onStepOn({ dimension }) {
+    dimension.runCommand("say Hello there!");
+    dimension.runCommand("say Welcome to my world!");
+}
+
+Set Block
+
+Custom Component
+
+js
+
+onStepOn({ block }) {
+    block.setType("minecraft:grass_block");
+}
+
+js
+
+import { BlockPermutation } from "@minecraft/server";
+
+Custom Component
+
+js
+
+onStepOn({ block }) {
+    block.setPermutation(BlockPermutation.resolve("minecraft:campfire", {
+        "minecraft:cardinal_direction": "east",
+        "extinguished": true
+    }));
+}
+
+Set Block at Pos
+
+Custom Component
+
+js
+
+onStepOn({ dimension, block }) {
+    const offset = { x: -1, y: 1, z: 5 };
+
+    const locationWithOffset = {
+        x: block.location.x + offset.x,
+        y: block.location.y + offset.y,
+        z: block.location.z + offset.z
+    };
+
+    dimension.setBlockType(locationWithOffset, "minecraft:grass_block");
+}
+
+js
+
+import { BlockPermutation } from "@minecraft/server";
+
+Custom Component
+
+js
+
+onStepOn({ dimension, block }) {
+    const offset = { x: -1, y: 1, z: 5 };
+
+    const locationWithOffset = {
+        x: block.location.x + offset.x,
+        y: block.location.y + offset.y,
+        z: block.location.z + offset.z
+    };
+
+    dimension.setBlockPermutation(locationWithOffset, BlockPermutation.resolve("minecraft:campfire", {
+        "minecraft:cardinal_direction": "east",
+        "extinguished": true
+    }));
+}
+
+Set Block State
+
+Custom Component
+
+js
+
+onStepOn({ block }) {
+    block.setPermutation(
+        block.permutation.withState("wiki:integer_example", 5)
+    );
+}
+
+js
+
+import { BlockPermutation } from "@minecraft/server";
+
+Custom Component
+
+js
+
+onStepOn({ block }) {
+    const states = {
+        ...block.permutation.getAllStates(),
+        "wiki:boolean_example": false,
+        "wiki:integer_example": 5,
+        "wiki:string_example": "blue"
+    };
+
+    block.setPermutation(
+        BlockPermutation.resolve(block.typeId, states)
+    );
+}
+
+Spawn Loot
+
+js
+
+import { ItemStack } from "@minecraft/server";
+
+Custom Component
+
+js
+
+onStepOn({ dimension, block }) {
+    dimension.spawnItem(new ItemStack("minecraft:stick", 3), block.center());
+}
+
+Custom Component
+
+js
+
+onStepOn({ dimension, block }) {
+    const { x, y, z } = block.center();
+
+    dimension.runCommand(`loot spawn ${x} ${y} ${z} loot "entities/ghast"`);
+}
+
+Teleport
+
+Custom Component
+
+js
+
+onStepOn({ entity }) {
+    entity?.teleport({ x: 100, y: 20, z: 786 });
+}
+
+Transform Item
+
+js
+
+import { EquipmentSlot, ItemStack } from "@minecraft/server";
+
+Custom Component
+
+js
+
+onPlayerInteract({ player }) {
+    const equippable = player?.getComponent("minecraft:equippable");
+    if (!equippable) return;
+
+    const mainhand = equippable.getEquipmentSlot(EquipmentSlot.Mainhand);
+    if (!mainhand.hasItem() || mainhand.typeId !== "minecraft:bowl") return;
+
+    mainhand.setItem(new ItemStack("minecraft:suspicious_stew"));
+}
+
+
